@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Statistics Bot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1, h3 {
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-top: 20px;
+        }
+        #chat-container {
+            height: 400px;
+            border: 1px solid #ddd;
+            overflow-y: scroll;
+            margin-bottom: 20px;
+            padding: 10px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e6f2ff;
+            text-align: right;
+        }
+        .bot-message {
+            background-color: #f0f0f0;
+            text-align: left;
+        }
+        #user-input, #question {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #send-btn, button[type="submit"], #generate-quiz-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        audio {
+            display: block;
+            margin: 10px auto;
+        }
+        #quiz-section {
+            margin-top: 20px;
+        }
+        .quiz-question {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .option {
+            margin: 5px 0;
+        }
+        .selected {
+            background-color: #e6f2ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Interactive Statistics Bot</h1>
+    
+    <!-- Play Table of Contents -->
+    <h3>Listen to the Table of Contents</h3>
+    <audio controls>
+        <source src="/generate_toc_speech" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    
+    <!-- Chat Section -->
+    <div class="container">
+        <h3>Ask a Statistical Question</h3>
+        <div id="chat-container"></div>
+        <input type="text" id="user-input" placeholder="Ask a question...">
+        <button id="send-btn">Send</button>
+    </div>
+    
+    <!-- Quiz Section -->
+    <div class="container" id="quiz-section">
+        <h3>Statistical Quiz</h3>
+        <button id="generate-quiz-btn">Generate Quiz</button>
+        <div id="quiz-questions"></div>
+    </div>
+    
+    <!-- JavaScript -->
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const generateQuizBtn = document.getElementById('generate-quiz-btn');
+        const quizQuestionsContainer = document.getElementById('quiz-questions');
+
+        // Function to add a message to the chat
+        function addMessage(message, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+            messageElement.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
+            messageElement.textContent = message;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Function to send a question to the backend
+        async function sendQuestion() {
+            const question = userInput.value.trim();
+            if (!question) return;
+
+            addMessage(question, 'user');
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+                addMessage(data.reply, 'bot');
+            } catch (error) {
+                addMessage('Error: Unable to fetch the response.', 'bot');
+                console.error(error);
+            }
+
+            userInput.value = '';
+        }
+
+        // Function to generate a quiz
+        async function generateQuiz() {
+            try {
+                const response = await fetch('/quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ level: 'university' })
+                });
+
+                const data = await response.json();
+                displayQuiz(data.quiz.questions);
+            } catch (error) {
+                console.error('Error generating quiz:', error);
+            }
+        }
+
+        // Function to display quiz questions
+        function displayQuiz(questions) {
+            quizQuestionsContainer.innerHTML = '';
+            questions.forEach((q, index) => {
+                const questionElement = document.createElement('div');
+                questionElement.classList.add('quiz-question');
+
+                const questionText = document.createElement('p');
+                questionText.textContent = `${index + 1}. ${q.question}`;
+                questionElement.appendChild(questionText);
+
+                q.options.forEach(option => {
+                    const optionElement = document.createElement('div');
+                    optionElement.classList.add('option');
+                    optionElement.textContent = option;
+                    optionElement.addEventListener('click', () => {
+                        const allOptions = questionElement.querySelectorAll('.option');
+                        allOptions.forEach(opt => opt.classList.remove('selected'));
+                        optionElement.classList.add('selected');
+                        optionElement.style.color = option === q.answer ? 'green' : 'red';
+                    });
+                    questionElement.appendChild(optionElement);
+                });
+
+                quizQuestionsContainer.appendChild(questionElement);
+            });
+        }
+
+        sendBtn.addEventListener('click', sendQuestion);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendQuestion();
+        });
+        generateQuizBtn.addEventListener('click', generateQuiz);
+    </script>
+</body>
+</html>
